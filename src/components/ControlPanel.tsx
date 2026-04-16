@@ -16,6 +16,7 @@ type ControlPanelProps = {
   fields: Fields;
   particles: ParticleConfig[];
   activeParticleId: string;
+  canAddParticle: boolean;
   presetId: FieldPresetId;
   isRunning: boolean;
   playbackSpeed: number;
@@ -128,6 +129,7 @@ export function ControlPanel({
   fields,
   particles,
   activeParticleId,
+  canAddParticle,
   presetId,
   isRunning,
   playbackSpeed,
@@ -233,13 +235,32 @@ export function ControlPanel({
       </div>
 
       <div className="button-row">
-        <button onClick={() => onAddParticle('electron')} type="button">
+        <button
+          disabled={!canAddParticle}
+          onClick={() => onAddParticle('electron')}
+          type="button"
+        >
           {ui.controls.addElectron}
         </button>
-        <button onClick={() => onAddParticle('proton')} type="button">
+        <button
+          disabled={!canAddParticle}
+          onClick={() => onAddParticle('proton')}
+          type="button"
+        >
           {ui.controls.addProton}
         </button>
-        <button onClick={() => onAddParticle('custom')} type="button">
+        <button
+          disabled={!canAddParticle}
+          onClick={() => onAddParticle('alpha')}
+          type="button"
+        >
+          {ui.controls.addAlpha}
+        </button>
+        <button
+          disabled={!canAddParticle}
+          onClick={() => onAddParticle('custom')}
+          type="button"
+        >
           {ui.controls.addCustom}
         </button>
       </div>

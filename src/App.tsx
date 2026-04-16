@@ -2,9 +2,10 @@ import {
   Suspense,
   lazy,
   startTransition,
+  useCallback,
   useDeferredValue,
   useEffect,
-  useEffectEvent,
+  useRef,
   useState,
 } from 'react';
 import { ControlPanel } from './components/ControlPanel';
@@ -30,6 +31,8 @@ import type {
   Vector3,
 } from './lib/types';
 import './styles/global.css';
+
+const MAX_PARTICLES = 8;
 
 const SimulationScene = lazy(() =>
   import('./components/SimulationScene').then((module) => ({
@@ -66,22 +69,23 @@ function cloneParticle(particle: ParticleConfig): ParticleConfig {
   };
 }
 
+const INITIAL_PARTICLES = createDefaultParticles();
+
 export default function App() {
-  const initialParticles = createDefaultParticles();
   const [language, setLanguage] = useState<Language>(initialLanguage);
   const [theme, setTheme] = useState<Theme>(preferredTheme);
   const [fields, setFields] = useState<Fields>(defaultFields);
-  const [particles, setParticles] = useState<ParticleConfig[]>(initialParticles);
+  const [particles, setParticles] = useState<ParticleConfig[]>(INITIAL_PARTICLES);
   const [presetId, setPresetId] = useState<FieldPresetId>('orthogonal');
-  const [activeParticleId, setActiveParticleId] = useState(initialParticles[0].id);
+  const [activeParticleId, setActiveParticleId] = useState(INITIAL_PARTICLES[0].id);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [isRunning, setIsRunning] = useState(true);
   const [trailLimit, setTrailLimit] = useState(150);
   const [cameraFollow, setCameraFollow] = useState(false);
   const [cameraResetToken, setCameraResetToken] = useState(0);
-  const [nextParticleSerial, setNextParticleSerial] = useState(initialParticles.length);
+  const [nextParticleSerial, setNextParticleSerial] = useState(INITIAL_PARTICLES.length);
   const [simulation, setSimulation] = useState(() =>
-    initialiseSimulation(initialParticles, defaultFields),
+    initialiseSimulation(INITIAL_PARTICLES, defaultFields),
   );
 
   const ui = copy[language];
@@ -90,32 +94,50 @@ export default function App() {
     (particle) => particle.id === activeParticleId,
   );
   const activeHistory = deferredSimulation.history[activeParticleId] ?? [];
+  const canAddParticle = particles.length < MAX_PARTICLES;
+
+  const fieldsRef = useRef(fields);
+  const particlesRef = useRef(particles);
+  const isRunningRef = useRef(isRunning);
+  const playbackSpeedRef = useRef(playbackSpeed);
+  const trailLimitRef = useRef(trailLimit);
+  fieldsRef.current = fields;
+  particlesRef.current = particles;
+  isRunningRef.current = isRunning;
+  playbackSpeedRef.current = playbackSpeed;
+  trailLimitRef.current = trailLimit;
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     window.localStorage.setItem('em-field-theme', theme);
   }, [theme]);
 
-  const resetSimulation = useEffectEvent(
-    (nextFields: Fields = fields, nextParticles: ParticleConfig[] = particles) => {
+  const resetSimulation = useCallback(
+    (nextFields?: Fields, nextParticles?: ParticleConfig[]) => {
       startTransition(() => {
-        setSimulation(initialiseSimulation(nextParticles, nextFields));
+        setSimulation(
+          initialiseSimulation(
+            nextParticles ?? particlesRef.current,
+            nextFields ?? fieldsRef.current,
+          ),
+        );
       });
     },
+    [],
   );
 
-  const animate = useEffectEvent((deltaMs: number) => {
-    if (!isRunning) {
+  const animate = useCallback((deltaMs: number) => {
+    if (!isRunningRef.current) {
       return;
     }
 
-    const elapsedSeconds = Math.min(deltaMs, 48) / 1000 * playbackSpeed * 1.6;
+    const elapsedSeconds = Math.min(deltaMs, 48) / 1000 * playbackSpeedRef.current * 1.6;
     startTransition(() => {
       setSimulation((current) =>
-        advanceSimulation(current, fields, elapsedSeconds, trailLimit),
+        advanceSimulation(current, fieldsRef.current, elapsedSeconds, trailLimitRef.current),
       );
     });
-  });
+  }, []);
 
   useEffect(() => {
     let frame = 0;
@@ -229,6 +251,10 @@ export default function App() {
   }
 
   function handleAddParticle(templateId: ParticleTemplateId) {
+    if (!canAddParticle) {
+      return;
+    }
+
     const particle = createParticle(templateId, nextParticleSerial);
     const nextParticles = [
       ...particles,
@@ -302,6 +328,7 @@ export default function App() {
         <ControlPanel
           activeParticleId={activeParticleId}
           cameraFollow={cameraFollow}
+          canAddParticle={canAddParticle}
           fields={fields}
           isRunning={isRunning}
           language={language}
@@ -350,6 +377,7 @@ export default function App() {
                 fields={fields}
                 language={language}
                 particles={deferredSimulation.particles}
+                theme={theme}
               />
             </Suspense>
           </section>

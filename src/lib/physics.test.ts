@@ -35,4 +35,18 @@ describe('physics engine', () => {
     expect(final.particles[0].velocity.x).toBeGreaterThan(0);
     expect(final.particles[0].position.x).toBeGreaterThan(initial.particles[0].position.x);
   });
+
+  it('records trail points for adaptive substeps within a frame', () => {
+    const particle = createParticle('electron', 0);
+    const fields: Fields = {
+      electric: { x: 0, y: 0, z: 0 },
+      magnetic: { x: 0, y: 0, z: 3 },
+      density: 3,
+      scaleMode: 'teaching',
+    };
+    const initial = initialiseSimulation([{ ...particle, velocity: { x: 2.4, y: 0, z: 0 } }], fields);
+    const final = advanceSimulation(initial, fields, 0.1, 180);
+
+    expect(final.particles[0].trail.length).toBeGreaterThan(2);
+  });
 });

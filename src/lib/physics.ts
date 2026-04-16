@@ -125,7 +125,6 @@ function borisStep(
   particle: ParticleState,
   fields: Fields,
   dt: number,
-  trailLimit: number,
 ): ParticleState {
   const mass = Math.max(particle.mass, EPSILON);
   const qmdt = (particle.charge * dt) / (2 * mass);
@@ -139,7 +138,6 @@ function borisStep(
   const position = add(particle.position, scale(velocity, dt));
   const force = lorentzForce(particle.charge, velocity, fields);
   const acceleration = scale(force, 1 / mass);
-  const trail = [...particle.trail, position].slice(-trailLimit);
 
   return {
     ...particle,
@@ -151,8 +149,24 @@ function borisStep(
     kineticEnergy: kineticEnergy(mass, velocity),
     cyclotronRadius: cyclotronRadius(mass, particle.charge, velocity, fields.magnetic),
     cyclotronPeriod: cyclotronPeriod(mass, particle.charge, magnitude(fields.magnetic)),
-    trail,
   };
+}
+
+function appendTrailPoints(
+  trail: Vector3[],
+  positions: Vector3[],
+  trailLimit: number,
+): Vector3[] {
+  if (trailLimit <= 1) {
+    return positions.length > 0 ? [positions[positions.length - 1]] : trail.slice(-1);
+  }
+
+  if (positions.length === 0) {
+    return trail;
+  }
+
+  const nextTrail = [...trail, ...positions];
+  return nextTrail.length > trailLimit ? nextTrail.slice(-trailLimit) : nextTrail;
 }
 
 export function adaptiveStepDuration(
@@ -176,16 +190,20 @@ export function advanceSimulation(
 
   let state = simulation;
   let remaining = elapsedSeconds;
+  const trailSegments = Object.fromEntries(
+    simulation.particles.map((particle) => [particle.id, [] as Vector3[]]),
+  );
 
   while (remaining > EPSILON) {
     const dt = adaptiveStepDuration(remaining, state.particles);
     const time = state.time + dt;
     const particles = state.particles.map((particle) =>
-      borisStep(particle, fields, dt, trailLimit),
+      borisStep(particle, fields, dt),
     );
     const history = { ...state.history };
 
     for (const particle of particles) {
+      trailSegments[particle.id]?.push(particle.position);
       const nextHistory = [...(history[particle.id] ?? []), metricPoint(time, particle)];
       history[particle.id] = nextHistory.slice(-HISTORY_LIMIT);
     }
@@ -198,5 +216,11 @@ export function advanceSimulation(
     remaining -= dt;
   }
 
-  return state;
+  return {
+    ...state,
+    particles: state.particles.map((particle) => ({
+      ...particle,
+      trail: appendTrailPoints(particle.trail, trailSegments[particle.id] ?? [], trailLimit),
+    })),
+  };
 }

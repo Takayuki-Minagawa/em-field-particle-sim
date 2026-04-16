@@ -1,11 +1,51 @@
 import { OrbitControls, Line, Text } from '@react-three/drei';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import * as THREE from 'three';
 import { particleLabel } from '../data/presets';
-import type { Fields, Language, ParticleState } from '../lib/types';
+import type { Fields, Language, ParticleState, Theme } from '../lib/types';
 import { magnitude, normalize } from '../lib/vector';
+
+const UP_VECTOR = new THREE.Vector3(0, 1, 0);
+const CAMERA_OFFSET = new THREE.Vector3(4.6, 3.7, 4.8);
+const SCENE_PALETTE: Record<
+  Theme,
+  {
+    background: string;
+    fog: string;
+    gridMajor: string;
+    gridMinor: string;
+    label: string;
+  }
+> = {
+  dark: {
+    background: '#08131f',
+    fog: '#08131f',
+    gridMajor: '#32516c',
+    gridMinor: '#153247',
+    label: '#f6fbff',
+  },
+  light: {
+    background: '#eef6fb',
+    fog: '#eef6fb',
+    gridMajor: '#98bed6',
+    gridMinor: '#cddfeb',
+    label: '#0e2534',
+  },
+};
+
+function directionQuaternion(vector: { x: number; y: number; z: number }) {
+  const direction = normalize(vector);
+  if (direction.x === 0 && direction.y === 0 && direction.z === 0) {
+    return new THREE.Quaternion();
+  }
+
+  return new THREE.Quaternion().setFromUnitVectors(
+    UP_VECTOR,
+    new THREE.Vector3(direction.x, direction.y, direction.z),
+  );
+}
 
 type SimulationSceneProps = {
   language: Language;
@@ -14,6 +54,7 @@ type SimulationSceneProps = {
   activeParticleId: string;
   cameraFollow: boolean;
   cameraResetToken: number;
+  theme: Theme;
 };
 
 type ArrowGlyphProps = {
@@ -32,15 +73,12 @@ function ArrowGlyph({
   opacity = 1,
 }: ArrowGlyphProps) {
   const length = Math.max(magnitude(vector) * scaleFactor, 0);
+  const quaternion = useMemo(() => directionQuaternion(vector), [vector.x, vector.y, vector.z]);
+
   if (length < 0.02) {
     return null;
   }
 
-  const direction = normalize(vector);
-  const quaternion = new THREE.Quaternion().setFromUnitVectors(
-    new THREE.Vector3(0, 1, 0),
-    new THREE.Vector3(direction.x, direction.y, direction.z),
-  );
   const shaftLength = Math.max(length * 0.74, 0.02);
   const headLength = Math.max(length - shaftLength, 0.12);
 
@@ -70,10 +108,14 @@ function FieldArrows({
   scaleFactor: number;
 }) {
   const span = 4.5;
-  const coordinates = Array.from({ length: density }, (_, index) =>
-    density === 1
-      ? 0
-      : -span + (index * (span * 2)) / Math.max(density - 1, 1),
+  const coordinates = useMemo(
+    () =>
+      Array.from({ length: density }, (_, index) =>
+        density === 1
+          ? 0
+          : -span + (index * (span * 2)) / Math.max(density - 1, 1),
+      ),
+    [density],
   );
 
   return (
@@ -103,16 +145,22 @@ function ParticleTrail({
   trail: ParticleState['trail'];
   color: string;
 }) {
+  const { points, colors } = useMemo(() => {
+    const highlight = new THREE.Color('#ffffff');
+    const base = new THREE.Color(color);
+
+    return {
+      points: trail.map((point) => [point.x, point.y, point.z] as [number, number, number]),
+      colors: trail.map((_, index) => {
+        const tint = index / Math.max(trail.length - 1, 1);
+        return base.clone().lerp(highlight, 1 - tint).toArray() as [number, number, number];
+      }),
+    };
+  }, [trail, color]);
+
   if (trail.length < 2) {
     return null;
   }
-
-  const points = trail.map((point) => [point.x, point.y, point.z] as [number, number, number]);
-  const colors = trail.flatMap((_, index) => {
-    const tint = index / Math.max(trail.length - 1, 1);
-    const mixed = new THREE.Color(color).lerp(new THREE.Color('#ffffff'), 1 - tint);
-    return [mixed.toArray() as [number, number, number]];
-  });
 
   return (
     <Line
@@ -135,6 +183,8 @@ function CameraRig({
 }) {
   const { camera } = useThree();
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
+  const targetRef = useRef(new THREE.Vector3());
+  const desiredRef = useRef(new THREE.Vector3());
 
   useEffect(() => {
     camera.position.set(10, 8, 10);
@@ -148,14 +198,14 @@ function CameraRig({
       return;
     }
 
-    const target = new THREE.Vector3(
+    targetRef.current.set(
       activeParticle.position.x,
       activeParticle.position.y,
       activeParticle.position.z,
     );
-    const desired = target.clone().add(new THREE.Vector3(4.6, 3.7, 4.8));
-    camera.position.lerp(desired, 0.05);
-    controlsRef.current?.target.lerp(target, 0.08);
+    desiredRef.current.copy(targetRef.current).add(CAMERA_OFFSET);
+    camera.position.lerp(desiredRef.current, 0.05);
+    controlsRef.current?.target.lerp(targetRef.current, 0.08);
     controlsRef.current?.update();
   });
 
@@ -169,15 +219,14 @@ function CyclotronGuide({
   particle: ParticleState | undefined;
   magnetic: Fields['magnetic'];
 }) {
+  const quaternion = useMemo(
+    () => directionQuaternion(magnetic),
+    [magnetic.x, magnetic.y, magnetic.z],
+  );
+
   if (!particle?.cyclotronRadius || magnitude(magnetic) < 1e-4) {
     return null;
   }
-
-  const direction = normalize(magnetic);
-  const quaternion = new THREE.Quaternion().setFromUnitVectors(
-    new THREE.Vector3(0, 1, 0),
-    new THREE.Vector3(direction.x, direction.y, direction.z),
-  );
 
   return (
     <group
@@ -203,18 +252,20 @@ function SceneContent({
   activeParticleId,
   cameraFollow,
   cameraResetToken,
+  theme,
 }: SimulationSceneProps) {
   const activeParticle = particles.find((particle) => particle.id === activeParticleId);
   const fieldScale = fields.scaleMode === 'teaching' ? 0.4 : 0.24;
+  const palette = SCENE_PALETTE[theme];
 
   return (
     <>
-      <color attach="background" args={['#08131f']} />
-      <fog attach="fog" args={['#08131f', 12, 24]} />
+      <color attach="background" args={[palette.background]} />
+      <fog attach="fog" args={[palette.fog, 12, 24]} />
       <ambientLight intensity={0.8} />
       <directionalLight color="#fff5d6" intensity={1.4} position={[7, 8, 6]} />
       <pointLight color="#8ce6ff" intensity={1.2} position={[-6, 5, -5]} />
-      <gridHelper args={[20, 20, '#32516c', '#153247']} position={[0, -4.6, 0]} />
+      <gridHelper args={[20, 20, palette.gridMajor, palette.gridMinor]} position={[0, -4.6, 0]} />
       <axesHelper args={[3]} />
       <FieldArrows
         color="#28b9ff"
@@ -247,7 +298,7 @@ function SceneContent({
           <Text
             anchorX="center"
             anchorY="bottom"
-            color="#f6fbff"
+            color={palette.label}
             fontSize={0.32}
             position={[
               particle.position.x,

@@ -19,7 +19,16 @@ export function LearningPanel({
 
   useEffect(() => {
     setAnswers({});
-  }, [language, particle?.id, particle?.speed, fields.electric.x, fields.electric.y, fields.electric.z, fields.magnetic.x, fields.magnetic.y, fields.magnetic.z]);
+  }, [
+    language,
+    particle?.id,
+    fields.electric.x,
+    fields.electric.y,
+    fields.electric.z,
+    fields.magnetic.x,
+    fields.magnetic.y,
+    fields.magnetic.z,
+  ]);
 
   if (!particle) {
     return null;

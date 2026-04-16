@@ -20,7 +20,15 @@ function format(value: number, digits = 2): string {
   return value.toFixed(digits);
 }
 
-function scenario(fields: Fields): 'electric' | 'magnetic' | 'parallel' | 'orthogonal' | 'mixed' {
+type MotionScenario =
+  | 'none'
+  | 'electric'
+  | 'magnetic'
+  | 'parallel'
+  | 'orthogonal'
+  | 'mixed';
+
+function scenario(fields: Fields): MotionScenario {
   const electricMagnitude = magnitude(fields.electric);
   const magneticMagnitude = magnitude(fields.magnetic);
 
@@ -33,7 +41,7 @@ function scenario(fields: Fields): 'electric' | 'magnetic' | 'parallel' | 'ortho
   }
 
   if (electricMagnitude < EPSILON && magneticMagnitude < EPSILON) {
-    return 'mixed';
+    return 'none';
   }
 
   const alignment =
@@ -76,6 +84,7 @@ export function buildExplanation(
 
   if (language === 'ja') {
     const descriptions: Record<typeof motionScenario, string> = {
+      none: `${label} にはほぼ力が働いていません。電場も磁場もないので、粒子は現在の速度を保ったまま等速直線運動を続けます。`,
       electric: `${label} は電場のみを受けており、加速度の向きはほぼ電場と同じです。荷電粒子の電荷が負なら加速度の向きは反転します。`,
       magnetic: `${label} は磁場のみを受けています。ローレンツ力は速度に垂直なので、速さはほぼ一定のまま向きだけが変わり、円運動またはらせん運動になります。`,
       parallel: `電場と磁場がほぼ平行です。磁場は横向き成分を曲げ、電場は磁場方向の速度成分を増減させるため、らせんの巻き方が変化します。`,
@@ -96,6 +105,8 @@ export function buildExplanation(
   }
 
   const descriptions: Record<typeof motionScenario, string> = {
+    none:
+      `${label} is effectively force-free here. With no electric or magnetic field, it continues in uniform straight-line motion at its current velocity.`,
     electric:
       `${label} is mainly driven by the electric field, so its acceleration points along the field for positive charge and opposite for negative charge.`,
     magnetic:

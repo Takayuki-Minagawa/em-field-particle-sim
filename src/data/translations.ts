@@ -20,6 +20,7 @@ type Copy = {
     particles: string;
     addElectron: string;
     addProton: string;
+    addAlpha: string;
     addCustom: string;
     removeParticle: string;
     mass: string;
@@ -87,6 +88,7 @@ export const copy: Record<Language, Copy> = {
       particles: '粒子設定',
       addElectron: '電子を追加',
       addProton: '陽子を追加',
+      addAlpha: 'アルファ粒子を追加',
       addCustom: '比較粒子を追加',
       removeParticle: '選択粒子を削除',
       mass: '質量 m',
@@ -163,6 +165,7 @@ export const copy: Record<Language, Copy> = {
       particles: 'Particle setup',
       addElectron: 'Add electron',
       addProton: 'Add proton',
+      addAlpha: 'Add alpha particle',
       addCustom: 'Add comparison particle',
       removeParticle: 'Remove selected particle',
       mass: 'Mass m',

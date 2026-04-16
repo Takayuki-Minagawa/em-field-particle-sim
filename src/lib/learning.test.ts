@@ -20,4 +20,23 @@ describe('learning content', () => {
     expect(selector?.correctId).toBe('selector');
     expect(selector?.explanation).toContain('v = E/B');
   });
+
+  it('describes zero-field motion as uniform straight-line motion', () => {
+    const particle = buildParticleState(createParticle('electron', 0), {
+      ...defaultFields,
+      electric: { x: 0, y: 0, z: 0 },
+      magnetic: { x: 0, y: 0, z: 0 },
+    });
+    const explanation = buildExplanation(
+      'ja',
+      {
+        ...defaultFields,
+        electric: { x: 0, y: 0, z: 0 },
+        magnetic: { x: 0, y: 0, z: 0 },
+      },
+      particle,
+    );
+
+    expect(explanation[0]).toContain('等速直線運動');
+  });
 });
