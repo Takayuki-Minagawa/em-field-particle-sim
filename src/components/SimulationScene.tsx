@@ -1,13 +1,17 @@
 import { OrbitControls, Line, Text } from '@react-three/drei';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { useEffect, useMemo, useRef } from 'react';
+import { Suspense, useEffect, useMemo, useRef } from 'react';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import * as THREE from 'three';
+import { SCENE_COLORS } from '../data/colors';
 import { particleLabel } from '../data/presets';
+import type { MissionTarget } from '../lib/missions';
 import type { Fields, Language, ParticleState, Theme } from '../lib/types';
-import { magnitude, normalize } from '../lib/vector';
+import { cross, dot, magnitude, normalize } from '../lib/vector';
 
 const UP_VECTOR = new THREE.Vector3(0, 1, 0);
+const RING_NORMAL = new THREE.Vector3(0, 0, 1);
+
 const CAMERA_OFFSET = new THREE.Vector3(4.6, 3.7, 4.8);
 const SCENE_PALETTE: Record<
   Theme,
@@ -55,6 +59,7 @@ type SimulationSceneProps = {
   cameraFollow: boolean;
   cameraResetToken: number;
   theme: Theme;
+  target?: MissionTarget;
 };
 
 type ArrowGlyphProps = {
@@ -214,9 +219,11 @@ function CameraRig({
 
 function CyclotronGuide({
   particle,
+  electric,
   magnetic,
 }: {
   particle: ParticleState | undefined;
+  electric: Fields['electric'];
   magnetic: Fields['magnetic'];
 }) {
   const quaternion = useMemo(
@@ -228,20 +235,111 @@ function CyclotronGuide({
     return null;
   }
 
+  // Gyrate in the frame moving with the E × B drift: v' = v - E × B / B².
+  const b2 = dot(magnetic, magnetic);
+  const drift = cross(electric, magnetic);
+  const relative = {
+    x: particle.velocity.x - drift.x / b2,
+    y: particle.velocity.y - drift.y / b2,
+    z: particle.velocity.z - drift.z / b2,
+  };
+  const offset = cross(relative, magnetic);
+  const radius = (particle.mass * magnitude(offset)) / (Math.abs(particle.charge) * b2);
+  if (radius < 0.05) {
+    return null;
+  }
+
+  // Guiding centre: x + m (v' × B) / (q B²).
+  const factor = particle.mass / (particle.charge * b2);
+
   return (
     <group
       position={[
-        particle.position.x,
-        particle.position.y,
-        particle.position.z,
+        particle.position.x + offset.x * factor,
+        particle.position.y + offset.y * factor,
+        particle.position.z + offset.z * factor,
       ]}
       quaternion={quaternion}
     >
       <mesh rotation={[Math.PI / 2, 0, 0]}>
-        <torusGeometry args={[particle.cyclotronRadius, 0.02, 8, 72]} />
-        <meshStandardMaterial color="#ffb84d" opacity={0.55} transparent />
+        <torusGeometry args={[radius, 0.02, 8, 72]} />
+        <meshStandardMaterial color={SCENE_COLORS.magnetic} opacity={0.55} transparent />
       </mesh>
     </group>
+  );
+}
+
+function MissionTargetMarker({ target }: { target: MissionTarget }) {
+  const groupRef = useRef<THREE.Group>(null);
+  const normal = target.normal ?? RING_NORMAL;
+  const quaternion = useMemo(
+    () =>
+      new THREE.Quaternion().setFromUnitVectors(
+        RING_NORMAL,
+        new THREE.Vector3(normal.x, normal.y, normal.z).normalize(),
+      ),
+    [normal.x, normal.y, normal.z],
+  );
+
+  useFrame(({ clock }) => {
+    groupRef.current?.scale.setScalar(1 + Math.sin(clock.elapsedTime * 3) * 0.08);
+  });
+
+  return (
+    <group
+      position={[target.position.x, target.position.y, target.position.z]}
+      quaternion={quaternion}
+      ref={groupRef}
+    >
+      {target.kind === 'orb' && (
+        <mesh>
+          <sphereGeometry args={[target.radius, 32, 32]} />
+          <meshStandardMaterial
+            color={SCENE_COLORS.target}
+            depthWrite={false}
+            emissive={SCENE_COLORS.target}
+            emissiveIntensity={0.7}
+            opacity={0.3}
+            transparent
+          />
+        </mesh>
+      )}
+      <mesh>
+        <torusGeometry args={[target.kind === 'orb' ? target.radius + 0.12 : target.radius, 0.05, 12, 64]} />
+        <meshStandardMaterial
+          color={SCENE_COLORS.target}
+          emissive={SCENE_COLORS.target}
+          emissiveIntensity={0.9}
+        />
+      </mesh>
+    </group>
+  );
+}
+
+function AxisLabels({ color }: { color: string }) {
+  return (
+    <>
+      {(
+        [
+          ['x', [3.35, 0, 0], '#ff7a6b'],
+          ['y', [0, 3.35, 0], '#7be07b'],
+          ['z', [0, 0, 3.35], '#6fa8ff'],
+        ] as const
+      ).map(([label, position, tint]) => (
+        <Text
+          anchorX="center"
+          anchorY="middle"
+          color={tint}
+          fontSize={0.36}
+          key={label}
+          outlineColor={color}
+          outlineWidth={0.01}
+          position={position as unknown as [number, number, number]}
+        >
+          {label}
+        </Text>
+      ))}
+    </>
   );
 }
 
@@ -253,6 +351,7 @@ function SceneContent({
   cameraFollow,
   cameraResetToken,
   theme,
+  target,
 }: SimulationSceneProps) {
   const activeParticle = particles.find((particle) => particle.id === activeParticleId);
   const fieldScale = fields.scaleMode === 'teaching' ? 0.4 : 0.24;
@@ -267,14 +366,19 @@ function SceneContent({
       <pointLight color="#8ce6ff" intensity={1.2} position={[-6, 5, -5]} />
       <gridHelper args={[20, 20, palette.gridMajor, palette.gridMinor]} position={[0, -4.6, 0]} />
       <axesHelper args={[3]} />
+      {/* Text labels fetch fonts at runtime; keep the rest of the scene visible if that is slow or blocked. */}
+      <Suspense fallback={null}>
+        <AxisLabels color={palette.background} />
+      </Suspense>
+      {target && <MissionTargetMarker target={target} />}
       <FieldArrows
-        color="#28b9ff"
+        color={SCENE_COLORS.electric}
         density={fields.density}
         scaleFactor={fieldScale}
         vector={fields.electric}
       />
       <FieldArrows
-        color="#ffb84d"
+        color={SCENE_COLORS.magnetic}
         density={fields.density}
         scaleFactor={fieldScale}
         vector={fields.magnetic}
@@ -293,28 +397,47 @@ function SceneContent({
             <sphereGeometry
               args={[particle.id === activeParticleId ? 0.24 : 0.18, 24, 24]}
             />
-            <meshStandardMaterial color={particle.color} emissive={particle.color} emissiveIntensity={0.18} />
+            <meshStandardMaterial color={particle.color} emissive={particle.color} emissiveIntensity={0.45} />
           </mesh>
-          <Text
-            anchorX="center"
-            anchorY="bottom"
-            color={palette.label}
-            fontSize={0.32}
+          <mesh
             position={[
               particle.position.x,
-              particle.position.y + 0.42,
+              particle.position.y,
               particle.position.z,
             ]}
           >
-            {particleLabel(particle, language)}
-          </Text>
+            <sphereGeometry
+              args={[particle.id === activeParticleId ? 0.46 : 0.34, 20, 20]}
+            />
+            <meshBasicMaterial
+              color={particle.color}
+              depthWrite={false}
+              opacity={0.16}
+              transparent
+            />
+          </mesh>
+          <Suspense fallback={null}>
+            <Text
+              anchorX="center"
+              anchorY="bottom"
+              color={palette.label}
+              fontSize={0.32}
+              position={[
+                particle.position.x,
+                particle.position.y + 0.42,
+                particle.position.z,
+              ]}
+            >
+              {particleLabel(particle, language)}
+            </Text>
+          </Suspense>
         </group>
       ))}
 
       {activeParticle && (
         <>
           <ArrowGlyph
-            color="#28b9ff"
+            color={SCENE_COLORS.velocity}
             origin={[
               activeParticle.position.x,
               activeParticle.position.y,
@@ -324,7 +447,7 @@ function SceneContent({
             vector={activeParticle.velocity}
           />
           <ArrowGlyph
-            color="#ff6b57"
+            color={SCENE_COLORS.force}
             origin={[
               activeParticle.position.x,
               activeParticle.position.y,
@@ -333,7 +456,7 @@ function SceneContent({
             scaleFactor={0.22}
             vector={activeParticle.force}
           />
-          <CyclotronGuide magnetic={fields.magnetic} particle={activeParticle} />
+          <CyclotronGuide electric={fields.electric} magnetic={fields.magnetic} particle={activeParticle} />
         </>
       )}
 

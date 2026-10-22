@@ -74,6 +74,10 @@ export function buildParticleState(
 
   return {
     ...particle,
+    launch: {
+      position: { ...particle.position },
+      velocity: { ...particle.velocity },
+    },
     force,
     acceleration,
     speed: magnitude(particle.velocity),
@@ -115,6 +119,8 @@ export function initialiseSimulation(
   );
 
   return {
+    // A fresh copy per run, so the object identity also marks one simulation attempt.
+    fields: { ...fields },
     time: 0,
     particles: particleStates,
     history,
@@ -209,6 +215,7 @@ export function advanceSimulation(
     }
 
     state = {
+      ...state,
       time,
       particles,
       history,

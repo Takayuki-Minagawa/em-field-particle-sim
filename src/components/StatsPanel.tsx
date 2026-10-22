@@ -35,27 +35,27 @@ export function StatsPanel({ language, particle, history }: StatsPanelProps) {
 
       <div className="metrics-grid">
         <article className="metric-card">
-          <span>{ui.metrics.speed}</span>
+          <span><span aria-hidden="true">💨</span> {ui.metrics.speed}</span>
           <strong>{formatValue(particle.speed)}</strong>
         </article>
         <article className="metric-card">
-          <span>{ui.metrics.kineticEnergy}</span>
+          <span><span aria-hidden="true">🔋</span> {ui.metrics.kineticEnergy}</span>
           <strong>{formatValue(particle.kineticEnergy)}</strong>
         </article>
         <article className="metric-card">
-          <span>{ui.metrics.force}</span>
+          <span><span aria-hidden="true">➡️</span> {ui.metrics.force}</span>
           <strong>{formatValue(magnitude(particle.force))}</strong>
         </article>
         <article className="metric-card">
-          <span>{ui.metrics.acceleration}</span>
+          <span><span aria-hidden="true">🚀</span> {ui.metrics.acceleration}</span>
           <strong>{formatValue(magnitude(particle.acceleration))}</strong>
         </article>
         <article className="metric-card">
-          <span>{ui.metrics.radius}</span>
+          <span><span aria-hidden="true">⭕</span> {ui.metrics.radius}</span>
           <strong>{formatValue(particle.cyclotronRadius)}</strong>
         </article>
         <article className="metric-card">
-          <span>{ui.metrics.period}</span>
+          <span><span aria-hidden="true">⏱️</span> {ui.metrics.period}</span>
           <strong>{formatValue(particle.cyclotronPeriod)}</strong>
         </article>
       </div>

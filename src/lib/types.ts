@@ -36,6 +36,10 @@ export type ParticleConfig = {
 };
 
 export type ParticleState = ParticleConfig & {
+  launch: {
+    position: Vector3;
+    velocity: Vector3;
+  };
   force: Vector3;
   acceleration: Vector3;
   speed: number;
@@ -56,6 +60,7 @@ export type MetricPoint = {
 };
 
 export type SimulationState = {
+  fields: Fields;
   time: number;
   particles: ParticleState[];
   history: Record<string, MetricPoint[]>;
@@ -80,3 +85,21 @@ export type QuizQuestion = {
   correctId: string;
   explanation: string;
 };
+
+export type Localized = Record<Language, string>;
+
+export type ScenarioParticle = {
+  templateId: ParticleTemplateId;
+  mass?: number;
+  charge?: number;
+  position: Vector3;
+  velocity: Vector3;
+};
+
+export type ScenarioSetup = {
+  electric: Vector3;
+  magnetic: Vector3;
+  particles: ScenarioParticle[];
+};
+
+export type StudyTab = 'lessons' | 'missions' | 'explain' | 'quiz';
