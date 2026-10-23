@@ -22,14 +22,15 @@ export function MissionPanel({
 }: MissionPanelProps) {
   const ui = copy[language].study;
   const [openHints, setOpenHints] = useState<Record<string, boolean>>({});
+  const clearedCount = missions.filter((mission) => completedMissions.includes(mission.id)).length;
 
   return (
     <div className="missions">
       <p className="subtle-note">{ui.missionsIntro}</p>
       <div className="mission-score" aria-live="polite">
-        🏆 {completedMissions.length} / {missions.length}
+        🏆 {clearedCount} / {missions.length}
         <span className="mission-score__bar">
-          <span style={{ width: `${(completedMissions.length / missions.length) * 100}%` }} />
+          <span style={{ width: `${(clearedCount / missions.length) * 100}%` }} />
         </span>
       </div>
 
@@ -68,7 +69,7 @@ export function MissionPanel({
             </p>
 
             {isActive && status && (
-              <div className="mission-live" role="status">
+              <div className="mission-live">
                 <div className="mission-live__row">
                   <span>{ui.progress}</span>
                   <span>{status.complete ? '100%' : `${Math.round(status.progress * 100)}%`}</span>
@@ -79,9 +80,12 @@ export function MissionPanel({
                     style={{ width: `${status.complete ? 100 : status.progress * 100}%` }}
                   />
                 </div>
-                <p className="mission-live__readout">{status.readout}</p>
-                {status.warning && <p className="mission-live__warning">⚠️ {status.warning}</p>}
-                {status.complete && <p className="mission-live__success">🎉 {ui.clearedToast}</p>}
+                {/* The readout changes every frame, so keep it out of the live region. */}
+                <p className="mission-live__readout" aria-live="off">{status.readout}</p>
+                <div role="status">
+                  {status.warning && <p className="mission-live__warning">⚠️ {status.warning}</p>}
+                  {status.complete && <p className="mission-live__success">🎉 {ui.clearedToast}</p>}
+                </div>
               </div>
             )}
 

@@ -35,32 +35,31 @@ export function Celebration({ message, token }: CelebrationProps) {
     [token],
   );
 
-  if (!visible) {
-    return null;
-  }
-
+  // The live region stays mounted so screen readers announce each new message.
   return (
-    <div className="celebration" aria-live="assertive">
-      <div className="celebration__confetti" aria-hidden="true">
-        {pieces.map((piece, index) => (
-          <span
-            key={`${token}-${index}`}
-            style={
-              {
-                left: `${piece.left}%`,
-                background: piece.color,
-                animationDelay: `${piece.delay}s`,
-                animationDuration: `${piece.duration}s`,
-                '--confetti-rotate': `${piece.rotate}deg`,
-                '--confetti-drift': `${piece.drift}px`,
-              } as CSSProperties
-            }
-          />
-        ))}
-      </div>
-      <div className="celebration__toast" role="status">
-        {message}
-      </div>
+    <div className="celebration" aria-live="assertive" role="status">
+      {visible && (
+        <>
+          <div className="celebration__confetti" aria-hidden="true">
+            {pieces.map((piece, index) => (
+              <span
+                key={`${token}-${index}`}
+                style={
+                  {
+                    left: `${piece.left}%`,
+                    background: piece.color,
+                    animationDelay: `${piece.delay}s`,
+                    animationDuration: `${piece.duration}s`,
+                    '--confetti-rotate': `${piece.rotate}deg`,
+                    '--confetti-drift': `${piece.drift}px`,
+                  } as CSSProperties
+                }
+              />
+            ))}
+          </div>
+          <div className="celebration__toast">{message}</div>
+        </>
+      )}
     </div>
   );
 }

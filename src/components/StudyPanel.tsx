@@ -1,4 +1,4 @@
-import type { ComponentProps } from 'react';
+import type { ComponentProps, KeyboardEvent } from 'react';
 import { copy } from '../data/translations';
 import type { Fields, Language, ParticleState, StudyTab } from '../lib/types';
 import { LearningPanel } from './LearningPanel';
@@ -33,6 +33,28 @@ export function StudyPanel({
 }: StudyPanelProps) {
   const ui = copy[language];
 
+  function handleTabKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+    const index = TABS.findIndex((entry) => entry.id === tab);
+    const offsets: Record<string, number> = { ArrowRight: 1, ArrowLeft: -1 };
+    let nextIndex: number | null = null;
+    if (event.key in offsets) {
+      nextIndex = (index + offsets[event.key] + TABS.length) % TABS.length;
+    } else if (event.key === 'Home') {
+      nextIndex = 0;
+    } else if (event.key === 'End') {
+      nextIndex = TABS.length - 1;
+    }
+
+    if (nextIndex === null) {
+      return;
+    }
+
+    event.preventDefault();
+    const nextTab = TABS[nextIndex].id;
+    onTabChange(nextTab);
+    document.getElementById(`study-tab-button-${nextTab}`)?.focus();
+  }
+
   return (
     <section className="panel panel--learning" id="study-panel">
       <div className="panel__heading">
@@ -45,13 +67,15 @@ export function StudyPanel({
       <div className="tabs" role="tablist" aria-label={ui.panels.learning}>
         {TABS.map((entry) => (
           <button
-            aria-controls={`study-tab-${entry.id}`}
+            aria-controls={tab === entry.id ? `study-tab-${entry.id}` : undefined}
             aria-selected={tab === entry.id}
             className={`tab ${tab === entry.id ? 'tab--active' : ''}`}
             id={`study-tab-button-${entry.id}`}
             key={entry.id}
             onClick={() => onTabChange(entry.id)}
+            onKeyDown={handleTabKeyDown}
             role="tab"
+            tabIndex={tab === entry.id ? 0 : -1}
             type="button"
           >
             <span aria-hidden="true">{entry.icon}</span> {ui.study.tabs[entry.id]}
@@ -64,6 +88,7 @@ export function StudyPanel({
         className="tab-panel"
         id={`study-tab-${tab}`}
         role="tabpanel"
+        tabIndex={0}
       >
         {tab === 'lessons' && <LessonPanel language={language} {...lessonProps} />}
         {tab === 'missions' && <MissionPanel language={language} {...missionProps} />}

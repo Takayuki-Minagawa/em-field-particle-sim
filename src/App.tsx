@@ -91,11 +91,29 @@ function preferredTheme(): Theme {
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
-function isTypingTarget(target: EventTarget | null) {
+function isTextEntryTarget(target: EventTarget | null) {
   return (
     target instanceof HTMLElement &&
-    (target.isContentEditable || ['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON'].includes(target.tagName))
+    (target.isContentEditable || ['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName))
   );
+}
+
+function isKeyboardFocusedControl(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement) || !target.matches('button, summary, a[href]')) {
+    return false;
+  }
+
+  // Space should still activate a control the user reached with the keyboard, but not one that
+  // merely kept focus after a mouse click.
+  try {
+    return target.matches(':focus-visible');
+  } catch {
+    return true;
+  }
+}
+
+function missionScenario(missionId: string) {
+  return `mission:${missionId}`;
 }
 
 function initialLanguage(): Language {
@@ -140,6 +158,7 @@ export default function App() {
   const [activeMissionId, setActiveMissionId] = useState<string | null>(null);
   const [completedMissions, setCompletedMissions] = useState<string[]>(() => readIdList(MISSIONS_KEY));
   const [celebration, setCelebration] = useState({ message: '', token: 0 });
+  const [clearedRun, setClearedRun] = useState<object | null>(null);
 
   const ui = copy[language];
   const deferredSimulation = useDeferredValue(simulation);
@@ -149,11 +168,18 @@ export default function App() {
   const activeHistory = deferredSimulation.history[activeParticleId] ?? [];
   const canAddParticle = particles.length < MAX_PARTICLES;
   const activeMission = missions.find((mission) => mission.id === activeMissionId) ?? null;
-  const missionStatus = useMemo(() => {
-    const particle =
-      deferredSimulation.particles.find((entry) => entry.id === activeParticleId) ??
-      deferredSimulation.particles[0];
-    if (!activeMission || !particle) {
+  // Each run of the simulation gets its own `fields` copy, so the object identifies one attempt.
+  const currentRun = deferredSimulation.fields;
+  const rawMissionStatus = useMemo(() => {
+    // Only judge runs that this mission set up; the deferred state can still hold the previous run.
+    if (!activeMission || deferredSimulation.scenario !== missionScenario(activeMission.id)) {
+      return null;
+    }
+
+    // Judge the mission's own particle (the first scenario particle), not whichever is selected.
+    const particleId = `${activeMission.setup.particles[0].templateId}-0`;
+    const particle = deferredSimulation.particles.find((entry) => entry.id === particleId);
+    if (!particle) {
       return null;
     }
 
@@ -163,7 +189,11 @@ export default function App() {
       time: deferredSimulation.time,
       language,
     });
-  }, [activeMission, activeParticleId, deferredSimulation, language]);
+  }, [activeMission, deferredSimulation, language]);
+  const missionStatus =
+    rawMissionStatus && clearedRun === currentRun
+      ? { ...rawMissionStatus, complete: true, progress: 1, warning: undefined }
+      : rawMissionStatus;
 
   const fieldsRef = useRef(fields);
   const particlesRef = useRef(particles);
@@ -176,7 +206,7 @@ export default function App() {
   playbackSpeedRef.current = playbackSpeed;
   trailLimitRef.current = trailLimit;
 
-  const celebratedRunRef = useRef<object | null>(null);
+  const scenarioRef = useRef<string | null>(null);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -196,13 +226,12 @@ export default function App() {
   }, [completedMissions]);
 
   useEffect(() => {
-    // Each run of the simulation shares one `fields` object, so it identifies the attempt.
-    const run = deferredSimulation.fields;
-    if (!activeMission || !missionStatus?.complete || celebratedRunRef.current === run) {
+    if (!activeMission || !rawMissionStatus?.complete || clearedRun === currentRun) {
       return;
     }
 
-    celebratedRunRef.current = run;
+    // Latch the clear for this run so the badge stays on after the particle moves past the goal.
+    setClearedRun(currentRun);
     setCompletedMissions((current) =>
       current.includes(activeMission.id) ? current : [...current, activeMission.id],
     );
@@ -210,7 +239,7 @@ export default function App() {
       message: `${activeMission.icon} ${copy[language].study.clearedToast}`,
       token: current.token + 1,
     }));
-  }, [activeMission, deferredSimulation.fields, language, missionStatus?.complete]);
+  }, [activeMission, clearedRun, currentRun, language, rawMissionStatus?.complete]);
 
   const resetSimulation = useCallback(
     (nextFields?: Fields, nextParticles?: ParticleConfig[]) => {
@@ -219,6 +248,7 @@ export default function App() {
           initialiseSimulation(
             nextParticles ?? particlesRef.current,
             nextFields ?? fieldsRef.current,
+            scenarioRef.current,
           ),
         );
       });
@@ -256,11 +286,20 @@ export default function App() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.altKey || event.ctrlKey || event.metaKey || isTypingTarget(event.target)) {
+      if (
+        event.repeat ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        isTextEntryTarget(event.target)
+      ) {
         return;
       }
 
       if (event.code === 'Space') {
+        if (isKeyboardFocusedControl(event.target)) {
+          return;
+        }
         event.preventDefault();
         setIsRunning((current) => !current);
       } else if (event.key === 'r' || event.key === 'R') {
@@ -403,7 +442,8 @@ export default function App() {
     resetSimulation();
   }
 
-  function applyScenario(setup: ScenarioSetup) {
+  function applyScenario(setup: ScenarioSetup, scenario: string) {
+    scenarioRef.current = scenario;
     const nextParticles = createScenarioParticles(setup, 0);
     const nextFields = {
       ...fields,
@@ -434,15 +474,20 @@ export default function App() {
     });
     setPreparedLessonId(lesson.id);
     setIsRunning(false);
-    applyScenario(lesson.setup);
+    applyScenario(lesson.setup, `lesson:${lesson.id}`);
   }
 
   function handleLessonPredict(index: number, optionId: string) {
     const lesson = lessons[index];
-    if (preparedLessonId !== lesson.id || lessonPredictions[lesson.id]) {
+    // The first answer counts; "Set up this experiment" clears it for another try.
+    if (lessonPredictions[lesson.id]) {
+      return;
+    }
+
+    if (preparedLessonId !== lesson.id) {
       setActiveMissionId(null);
       setPreparedLessonId(lesson.id);
-      applyScenario(lesson.setup);
+      applyScenario(lesson.setup, `lesson:${lesson.id}`);
     }
 
     setLessonPredictions((current) => ({ ...current, [lesson.id]: optionId }));
@@ -466,12 +511,11 @@ export default function App() {
     setActiveMissionId(mission.id);
     setPreparedLessonId(null);
     setIsRunning(true);
-    applyScenario(mission.setup);
+    applyScenario(mission.setup, missionScenario(mission.id));
   }
 
   function cyclePlaybackSpeed() {
-    const index = PLAYBACK_SPEEDS.findIndex((speed) => speed >= playbackSpeed);
-    setPlaybackSpeed(PLAYBACK_SPEEDS[(index + 1) % PLAYBACK_SPEEDS.length]);
+    setPlaybackSpeed(PLAYBACK_SPEEDS.find((speed) => speed > playbackSpeed) ?? PLAYBACK_SPEEDS[0]);
   }
 
   const lessonsDone = completedLessons.filter((id) => lessons.some((lesson) => lesson.id === id)).length;

@@ -104,11 +104,13 @@ export const missions: Mission[] = [
     evaluate: ({ particle, language }) => {
       const launched = magnitude(particle.launch.velocity) > 0.05;
       const passed = particle.position.x > 4.3;
-      const progress = clamp(particle.speed / 4, 0, 1);
+      // Only speed toward +x counts: the goal is to arrive at x = 4.
+      const forward = particle.velocity.x;
+      const progress = clamp(forward / 4, 0, 1);
       const readout = t(
         language,
-        `速さ ${f(particle.speed)} / 目標 4.00 （x = ${f(particle.position.x)}）`,
-        `Speed ${f(particle.speed)} / goal 4.00 (x = ${f(particle.position.x)})`,
+        `+x 向きの速さ ${f(forward)} / 目標 4.00 （x = ${f(particle.position.x)}）`,
+        `Speed toward +x ${f(forward)} / goal 4.00 (x = ${f(particle.position.x)})`,
       );
 
       if (launched) {
@@ -120,7 +122,7 @@ export const missions: Mission[] = [
         };
       }
 
-      if (passed && particle.speed < 4) {
+      if (passed && forward < 4) {
         return {
           complete: false,
           progress,
@@ -133,7 +135,7 @@ export const missions: Mission[] = [
         };
       }
 
-      return { complete: particle.speed >= 4 && !passed, progress, readout };
+      return { complete: forward >= 4 && !passed, progress, readout };
     },
   },
   {
@@ -166,6 +168,19 @@ export const missions: Mission[] = [
         [...particle.trail, particle.position],
         DEFLECT_TARGET,
       );
+      if (distance(particle.launch.position, DEFLECT_TARGET) < 2) {
+        return {
+          complete: false,
+          progress: 0,
+          readout: t(language, `的までの距離 ${f(closest)}`, `Distance to target ${f(closest)}`),
+          warning: t(
+            language,
+            'スタート地点を的から離そう（ずるはなし！）',
+            'Start farther from the target (no shortcuts!)',
+          ),
+        };
+      }
+
       return {
         complete: closest <= 0.45,
         progress: clamp(1 - (closest - 0.45) / 5, 0, 1),
@@ -252,10 +267,10 @@ export const missions: Mission[] = [
     id: 'helix',
     icon: '🌀',
     difficulty: 2,
-    title: { ja: 'らせん階段をのぼれ', en: 'Climb the spiral stairs' },
+    title: { ja: 'らせんを描け', en: 'Draw a helix' },
     story: {
-      ja: '今は同じ場所をぐるぐる回るだけ。らせんを描いて上へのぼらせよう！',
-      en: 'Right now it only circles in place. Make it spiral upward!',
+      ja: '今は同じ場所をぐるぐる回るだけ。磁場の向き（z 軸）に沿って進む、らせんを描かせよう！',
+      en: 'Right now it only circles in place. Make it spiral along the magnetic field (the z axis)!',
     },
     goal: {
       ja: 'v∥（磁場方向の速さ）0.5 以上、v⊥ 0.5 以上で 1 周以上らせんを描く',
@@ -344,6 +359,19 @@ export const missions: Mission[] = [
         };
       }
 
+      if (Math.abs(particle.charge) < 0.5) {
+        return {
+          complete: false,
+          progress: 0,
+          readout,
+          warning: t(
+            language,
+            '電荷が 0 に近いと力を受けないだけ。電荷は残そう',
+            'With almost no charge it simply feels no force. Keep the charge',
+          ),
+        };
+      }
+
       const throughGate =
         particle.position.x >= 3.8 &&
         Math.abs(particle.position.y - SELECTOR_GATE.y) <= 0.5 &&
@@ -366,8 +394,8 @@ export const missions: Mission[] = [
       en: 'The E × B drift carries the electron toward +x. Reverse the flow and bring it to the left shore (x ≤ -1)!',
     },
     goal: {
-      ja: '電場と磁場を残したまま、ドリフトで x ≤ -1 まで運ぶ',
-      en: 'With both fields on, drift the electron to x ≤ -1',
+      ja: '電場と磁場を残したまま、ドリフトで -x 向きに 3 以上流して x ≤ -1 まで運ぶ',
+      en: 'With both fields on, drift the electron at least 3 units toward -x, to x ≤ -1',
     },
     hint: {
       ja: 'v_d = E × B / B²。電荷の符号を変えてもドリフトの向きは変わらない…では何を変える？',
@@ -401,10 +429,13 @@ export const missions: Mission[] = [
         return { complete: false, progress: 0.1, readout };
       }
 
+      // The drift itself must carry the particle at least 3 units, wherever it starts.
       const start = particle.launch.position.x;
+      const travelled = start - particle.position.x;
+      const needed = Math.max(3, start + 1);
       return {
-        complete: particle.position.x <= -1,
-        progress: clamp(0.3 + (0.7 * (start - particle.position.x)) / Math.max(start + 1, 1), 0, 1),
+        complete: particle.position.x <= -1 && travelled >= 3,
+        progress: clamp(0.3 + (0.7 * travelled) / needed, 0, 1),
         readout,
       };
     },

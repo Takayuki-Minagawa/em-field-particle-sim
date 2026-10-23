@@ -61,6 +61,8 @@ export type MetricPoint = {
 
 export type SimulationState = {
   fields: Fields;
+  /** Lesson or mission that set up this run (e.g. `mission:circle`); null for free play. */
+  scenario: string | null;
   time: number;
   particles: ParticleState[];
   history: Record<string, MetricPoint[]>;

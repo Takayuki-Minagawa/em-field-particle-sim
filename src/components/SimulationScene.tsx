@@ -231,7 +231,9 @@ function CyclotronGuide({
     [magnetic.x, magnetic.y, magnetic.z],
   );
 
-  if (!particle?.cyclotronRadius || magnitude(magnetic) < 1e-4) {
+  // Gate on charge and field, not the lab-frame radius: a particle at rest in crossed fields
+  // still gyrates in the drift frame.
+  if (!particle || Math.abs(particle.charge) < 1e-6 || magnitude(magnetic) < 1e-4) {
     return null;
   }
 

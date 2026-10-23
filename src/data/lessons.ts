@@ -107,8 +107,8 @@ export const lessons: Lesson[] = [
     },
     prediction: {
       prompt: {
-        ja: '陽子が +x 向きに進んでいます。磁場は +z 向き（画面の上向きの矢印）。陽子は最初にどちらへ曲がるでしょう？',
-        en: 'A proton moves in +x. The magnetic field points in +z. Which way does the proton bend first?',
+        ja: '陽子が +x 向きに進んでいます。磁場は +z 向き（オレンジの矢印）。陽子は最初にどちらへ曲がるでしょう？',
+        en: 'A proton moves in +x. The magnetic field points in +z (the orange arrows). Which way does the proton bend first?',
       },
       options: [
         { id: 'py', label: { ja: '+y 方向', en: '+y' } },
@@ -123,8 +123,8 @@ export const lessons: Lesson[] = [
       },
     },
     observe: {
-      ja: '赤い矢印（力）が、青い矢印（速度）に対していつも直角になっていることを確かめましょう。',
-      en: 'Check that the red arrow (force) always stays at a right angle to the blue arrow (velocity).',
+      ja: '赤い矢印（力）が、緑の矢印（速度）に対していつも直角になっていることを確かめましょう。',
+      en: 'Check that the red arrow (force) always stays at a right angle to the green arrow (velocity).',
     },
     tryNext: {
       ja: '電荷 q をマイナスにすると、曲がる向きはどうなる？',
@@ -237,8 +237,8 @@ export const lessons: Lesson[] = [
       },
     },
     observe: {
-      ja: 'らせんの間隔（ピッチ）が一定のまま、上へ上へと進んでいく様子を観察しましょう。',
-      en: 'Watch the helix climb upward with a constant pitch.',
+      ja: 'らせんの間隔（ピッチ）が一定のまま、磁場の向き（+z 方向）へ進んでいく様子を観察しましょう。',
+      en: 'Watch the helix advance along the field (+z) with a constant pitch.',
     },
     tryNext: {
       ja: '初速度の z 成分を大きくすると、らせんの間隔はどうなる？',

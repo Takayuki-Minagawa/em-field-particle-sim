@@ -80,6 +80,29 @@ describe('missions', () => {
     expect(play(entry, withParticle(entry.setup, { charge: 1 }))).toBe(false);
   });
 
+  it('rejects shortcuts that bypass what each mission teaches', () => {
+    const accelerate = mission('accelerate');
+    expect(play(accelerate, { ...accelerate.setup, electric: { x: -1.5, y: 0, z: 0 } })).toBe(false);
+
+    const deflect = mission('deflect');
+    expect(play(deflect, withParticle(deflect.setup, { position: { x: 2, y: -3, z: 0 } }))).toBe(false);
+
+    const selector = mission('selector');
+    expect(play(selector, withParticle(selector.setup, { charge: 0 }))).toBe(false);
+
+    const drift = mission('drift');
+    expect(
+      play(
+        drift,
+        withParticle(
+          { ...drift.setup, electric: { x: 0, y: -1.5, z: 0 } },
+          { position: { x: -2, y: 0, z: 0 } },
+        ),
+        2,
+      ),
+    ).toBe(false);
+  });
+
   it('computes the E x B drift independent of charge', () => {
     expect(exbDrift({ ...defaultFields, electric: { x: 0, y: 1.5, z: 0 }, magnetic: { x: 0, y: 0, z: 1.5 } }))
       .toEqual({ x: 1, y: 0, z: 0 });
