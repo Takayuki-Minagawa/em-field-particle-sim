@@ -98,22 +98,8 @@ function isTextEntryTarget(target: EventTarget | null) {
   );
 }
 
-function isKeyboardFocusedControl(target: EventTarget | null) {
-  if (!(target instanceof HTMLElement) || !target.matches('button, summary, a[href]')) {
-    return false;
-  }
-
-  // Space should still activate a control the user reached with the keyboard, but not one that
-  // merely kept focus after a mouse click.
-  try {
-    return target.matches(':focus-visible');
-  } catch {
-    return true;
-  }
-}
-
-function missionScenario(missionId: string) {
-  return `mission:${missionId}`;
+function isActivatableControl(target: EventTarget | null) {
+  return target instanceof HTMLElement && target.matches('button, summary, a[href]');
 }
 
 function initialLanguage(): Language {
@@ -159,6 +145,8 @@ export default function App() {
   const [completedMissions, setCompletedMissions] = useState<string[]>(() => readIdList(MISSIONS_KEY));
   const [celebration, setCelebration] = useState({ message: '', token: 0 });
   const [clearedRun, setClearedRun] = useState<object | null>(null);
+  // Scenario tag of the current mission attempt; only runs carrying it are judged.
+  const [missionTag, setMissionTag] = useState<string | null>(null);
 
   const ui = copy[language];
   const deferredSimulation = useDeferredValue(simulation);
@@ -172,7 +160,7 @@ export default function App() {
   const currentRun = deferredSimulation.fields;
   const rawMissionStatus = useMemo(() => {
     // Only judge runs that this mission set up; the deferred state can still hold the previous run.
-    if (!activeMission || deferredSimulation.scenario !== missionScenario(activeMission.id)) {
+    if (!activeMission || !missionTag || deferredSimulation.scenario !== missionTag) {
       return null;
     }
 
@@ -189,7 +177,7 @@ export default function App() {
       time: deferredSimulation.time,
       language,
     });
-  }, [activeMission, deferredSimulation, language]);
+  }, [activeMission, deferredSimulation, language, missionTag]);
   const missionStatus =
     rawMissionStatus && clearedRun === currentRun
       ? { ...rawMissionStatus, complete: true, progress: 1, warning: undefined }
@@ -207,6 +195,7 @@ export default function App() {
   trailLimitRef.current = trailLimit;
 
   const scenarioRef = useRef<string | null>(null);
+  const missionAttemptRef = useRef(0);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -285,30 +274,54 @@ export default function App() {
   }, [animate]);
 
   useEffect(() => {
+    // Space keeps its native "activate" meaning for a control reached with the keyboard, but a
+    // button that merely kept focus after a mouse click should not swallow the shortcut.
+    let lastInput: 'pointer' | 'keyboard' = 'pointer';
+    let interceptedSpace = false;
+
+    const onPointerDown = () => {
+      lastInput = 'pointer';
+    };
+
     const onKeyDown = (event: KeyboardEvent) => {
-      if (
-        event.repeat ||
-        event.altKey ||
-        event.ctrlKey ||
-        event.metaKey ||
-        isTextEntryTarget(event.target)
-      ) {
+      if (event.key === 'Tab' || event.key.startsWith('Arrow')) {
+        lastInput = 'keyboard';
+      }
+
+      if (event.altKey || event.ctrlKey || event.metaKey || isTextEntryTarget(event.target)) {
         return;
       }
 
       if (event.code === 'Space') {
-        if (isKeyboardFocusedControl(event.target)) {
+        if (isActivatableControl(event.target) && lastInput === 'keyboard') {
           return;
         }
         event.preventDefault();
-        setIsRunning((current) => !current);
-      } else if (event.key === 'r' || event.key === 'R') {
+        interceptedSpace = true;
+        if (!event.repeat) {
+          setIsRunning((current) => !current);
+        }
+      } else if ((event.key === 'r' || event.key === 'R') && !event.repeat) {
         resetSimulation();
       }
     };
 
+    const onKeyUp = (event: KeyboardEvent) => {
+      // Some browsers activate a focused button on keyup, so cancel that too.
+      if (event.code === 'Space' && interceptedSpace) {
+        event.preventDefault();
+        interceptedSpace = false;
+      }
+    };
+
+    window.addEventListener('pointerdown', onPointerDown, true);
     window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown, true);
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
+    };
   }, [resetSimulation]);
 
   function applyParticleChange(nextParticles: ParticleConfig[]) {
@@ -339,7 +352,9 @@ export default function App() {
     };
     let nextParticles = particles.map((particle) => cloneParticle(particle));
 
-    if (preset.recommendedVelocity) {
+    // During a mission the preset only changes the fields; handing over the launch velocity
+    // would solve some missions in one click.
+    if (preset.recommendedVelocity && !activeMissionId) {
       const recommendedVelocity = preset.recommendedVelocity;
       nextParticles = nextParticles.map((particle) =>
         particle.id === activeParticleId
@@ -466,7 +481,7 @@ export default function App() {
 
   function handleLessonPrepare(index: number) {
     const lesson = lessons[index];
-    setActiveMissionId(null);
+    handleMissionQuit();
     setLessonPredictions((current) => {
       const next = { ...current };
       delete next[lesson.id];
@@ -484,11 +499,11 @@ export default function App() {
       return;
     }
 
-    if (preparedLessonId !== lesson.id) {
-      setActiveMissionId(null);
-      setPreparedLessonId(lesson.id);
-      applyScenario(lesson.setup, `lesson:${lesson.id}`);
-    }
+    // Always restart from the lesson setup so the answer is checked against a fresh experiment,
+    // even if the user already played or edited it after preparing.
+    handleMissionQuit();
+    setPreparedLessonId(lesson.id);
+    applyScenario(lesson.setup, `lesson:${lesson.id}`);
 
     setLessonPredictions((current) => ({ ...current, [lesson.id]: optionId }));
     setCompletedLessons((current) => (current.includes(lesson.id) ? current : [...current, lesson.id]));
@@ -510,8 +525,17 @@ export default function App() {
 
     setActiveMissionId(mission.id);
     setPreparedLessonId(null);
+    missionAttemptRef.current += 1;
+    const tag = `mission:${mission.id}:${missionAttemptRef.current}`;
+    setMissionTag(tag);
     setIsRunning(true);
-    applyScenario(mission.setup, missionScenario(mission.id));
+    applyScenario(mission.setup, tag);
+  }
+
+  function handleMissionQuit() {
+    setActiveMissionId(null);
+    setMissionTag(null);
+    scenarioRef.current = null;
   }
 
   function cyclePlaybackSpeed() {
@@ -781,7 +805,7 @@ export default function App() {
           missionProps={{
             activeMissionId,
             completedMissions,
-            onQuit: () => setActiveMissionId(null),
+            onQuit: handleMissionQuit,
             onStart: handleMissionStart,
             status: missionStatus,
           }}

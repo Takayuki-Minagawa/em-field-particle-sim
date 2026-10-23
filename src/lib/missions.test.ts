@@ -71,6 +71,7 @@ describe('missions', () => {
   it('clears the gate only at v = E / B', () => {
     const entry = mission('selector');
     expect(play(entry, withParticle(entry.setup, { velocity: { x: 2, y: 0, z: 0 } }))).toBe(true);
+    expect(play(entry, withParticle(entry.setup, { charge: 3, velocity: { x: 2, y: 0, z: 0 } }))).toBe(true);
     expect(play(entry, withParticle(entry.setup, { velocity: { x: 2.5, y: 0, z: 0 } }))).toBe(false);
   });
 
@@ -89,6 +90,17 @@ describe('missions', () => {
 
     const selector = mission('selector');
     expect(play(selector, withParticle(selector.setup, { charge: 0 }))).toBe(false);
+
+    expect(play(selector, withParticle(selector.setup, { charge: 0.5, velocity: { x: 1.8, y: 0, z: 0 } }))).toBe(false);
+    expect(
+      play(selector, withParticle(selector.setup, { position: { x: 4, y: 0, z: 0 }, velocity: { x: 2, y: 0, z: 0 } })),
+    ).toBe(false);
+    expect(
+      play(
+        deflect,
+        withParticle({ ...deflect.setup, electric: { x: 0, y: 0, z: 0 } }, { velocity: { x: 3, y: -1.5, z: 0 } }),
+      ),
+    ).toBe(false);
 
     const drift = mission('drift');
     expect(

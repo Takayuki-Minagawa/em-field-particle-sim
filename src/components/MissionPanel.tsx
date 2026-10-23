@@ -68,23 +68,28 @@ export function MissionPanel({
               <strong>{ui.goal}:</strong> {mission.goal[language]}
             </p>
 
-            {isActive && status && (
+            {isActive && (
               <div className="mission-live">
-                <div className="mission-live__row">
-                  <span>{ui.progress}</span>
-                  <span>{status.complete ? '100%' : `${Math.round(status.progress * 100)}%`}</span>
-                </div>
-                <div className="meter">
-                  <span
-                    className={status.complete ? 'is-complete' : ''}
-                    style={{ width: `${status.complete ? 100 : status.progress * 100}%` }}
-                  />
-                </div>
-                {/* The readout changes every frame, so keep it out of the live region. */}
-                <p className="mission-live__readout" aria-live="off">{status.readout}</p>
+                {status && (
+                  <>
+                    <div className="mission-live__row">
+                      <span>{ui.progress}</span>
+                      <span>{status.complete ? '100%' : `${Math.round(status.progress * 100)}%`}</span>
+                    </div>
+                    <div className="meter">
+                      <span
+                        className={status.complete ? 'is-complete' : ''}
+                        style={{ width: `${status.complete ? 100 : status.progress * 100}%` }}
+                      />
+                    </div>
+                    {/* The readout changes every frame, so keep it out of the live region. */}
+                    <p className="mission-live__readout" aria-live="off">{status.readout}</p>
+                  </>
+                )}
+                {/* Mounted for the whole attempt so its first message is announced. */}
                 <div role="status">
-                  {status.warning && <p className="mission-live__warning">⚠️ {status.warning}</p>}
-                  {status.complete && <p className="mission-live__success">🎉 {ui.clearedToast}</p>}
+                  {status?.warning && <p className="mission-live__warning">⚠️ {status.warning}</p>}
+                  {status?.complete && <p className="mission-live__success">🎉 {ui.clearedToast}</p>}
                 </div>
               </div>
             )}

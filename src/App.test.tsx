@@ -96,4 +96,30 @@ describe('App mission flow', () => {
     expect(storedMissions()).toContain('accelerate');
     expect(screen.getByRole('region', { name: 'Electric rocket' })).toHaveTextContent(/Mission cleared!/);
   });
+
+  it('does not judge a restarted mission on the free-play run after Quit', async () => {
+    render(<App />);
+    await startMission('Draw a helix');
+    await click(within(screen.getByRole('region', { name: 'Draw a helix' })).getByRole('button', { name: /Quit/ }));
+
+    const velocity = screen.getByRole('group', { name: /Initial velocity/ });
+    await act(async () => {
+      fireEvent.change(within(velocity).getAllByRole('spinbutton')[2], { target: { value: '0.8' } });
+    });
+    await frames(80);
+
+    await click(within(screen.getByRole('region', { name: 'Draw a helix' })).getByRole('button', { name: /Start/ }));
+    await frames(3);
+
+    expect(storedMissions()).not.toContain('helix');
+  });
+
+  it('keeps presets from handing over the launch velocity during a mission', async () => {
+    render(<App />);
+    await startMission('Draw a helix');
+    await click(screen.getByRole('button', { name: /Magnetic only/ }));
+    await frames(120);
+
+    expect(storedMissions()).not.toContain('helix');
+  });
 });

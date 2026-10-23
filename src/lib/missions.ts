@@ -75,6 +75,8 @@ export function closestApproach(trail: Vector3[], target: Vector3): number {
 
 const DEFLECT_TARGET: Vector3 = { x: 2, y: -3, z: 0 };
 const SELECTOR_GATE: Vector3 = { x: 4, y: 0, z: 0 };
+// Target radius plus roughly the drawn particle radius, so a visible overlap counts as a hit.
+const DEFLECT_HIT_RADIUS = 0.65;
 
 export const missions: Mission[] = [
   {
@@ -163,11 +165,24 @@ export const missions: Mission[] = [
       ],
     },
     target: { kind: 'orb', position: DEFLECT_TARGET, radius: 0.45 },
-    evaluate: ({ particle, language }) => {
+    evaluate: ({ particle, fields, language }) => {
       const closest = closestApproach(
         [...particle.trail, particle.position],
         DEFLECT_TARGET,
       );
+      if (magnitude(fields.electric) < 0.3) {
+        return {
+          complete: false,
+          progress: 0,
+          readout: t(language, `的までの距離 ${f(closest)}`, `Distance to target ${f(closest)}`),
+          warning: t(
+            language,
+            '電場を「重力」として使おう（電場は残す）',
+            'Use the electric field as your "gravity" (keep it on)',
+          ),
+        };
+      }
+
       if (distance(particle.launch.position, DEFLECT_TARGET) < 2) {
         return {
           complete: false,
@@ -182,8 +197,8 @@ export const missions: Mission[] = [
       }
 
       return {
-        complete: closest <= 0.45,
-        progress: clamp(1 - (closest - 0.45) / 5, 0, 1),
+        complete: closest <= DEFLECT_HIT_RADIUS,
+        progress: clamp(1 - (closest - DEFLECT_HIT_RADIUS) / 5, 0, 1),
         readout: t(
           language,
           `的までの距離 ${f(closest)}`,
@@ -341,13 +356,14 @@ export const missions: Mission[] = [
     },
     target: { kind: 'gate', position: SELECTOR_GATE, radius: 0.5, normal: { x: 1, y: 0, z: 0 } },
     evaluate: ({ particle, fields, language }) => {
-      // Judge by the net force at launch: a cycloid also returns to y = 0
+      // Judge by the field balance at launch: a cycloid also returns to y = 0
       // periodically, but only a balanced launch travels in a straight line.
-      const force = magnitude(lorentzForce(particle.charge, particle.launch.velocity, fields));
+      // Using E + v × B (force per charge) keeps the tolerance independent of q.
+      const imbalance = magnitude(lorentzForce(1, particle.launch.velocity, fields));
       const readout = t(
         language,
-        `発射時の合力 |F| = ${f(force)}（0 に近づけよう）`,
-        `Net force at launch |F| = ${f(force)} (bring it to 0)`,
+        `発射時の |E + v × B| = ${f(imbalance)}（0 に近づけよう）`,
+        `|E + v × B| at launch = ${f(imbalance)} (bring it to 0)`,
       );
 
       if (magnitude(fields.electric) < 0.5 || magnitude(fields.magnetic) < 0.5) {
@@ -356,6 +372,15 @@ export const missions: Mission[] = [
           progress: 0,
           readout,
           warning: t(language, '電場と磁場はどちらも残そう', 'Keep both fields switched on'),
+        };
+      }
+
+      if (particle.launch.position.x > 2) {
+        return {
+          complete: false,
+          progress: 0,
+          readout,
+          warning: t(language, 'スタート地点はゲートから離そう', 'Start farther from the gate'),
         };
       }
 
@@ -378,8 +403,8 @@ export const missions: Mission[] = [
         Math.abs(particle.position.z - SELECTOR_GATE.z) <= 0.5;
 
       return {
-        complete: force <= 0.1 && throughGate,
-        progress: clamp(1 - force / 3, 0, 1),
+        complete: imbalance <= 0.1 && throughGate,
+        progress: clamp(1 - imbalance / 3, 0, 1),
         readout,
       };
     },
