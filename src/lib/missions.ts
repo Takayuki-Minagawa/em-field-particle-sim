@@ -170,15 +170,16 @@ export const missions: Mission[] = [
         [...particle.trail, particle.position],
         DEFLECT_TARGET,
       );
-      if (magnitude(fields.electric) < 0.3) {
+      // The field must pull downward like gravity; a sideways field would allow a straight shot.
+      if (-fields.electric.y < 0.3) {
         return {
           complete: false,
           progress: 0,
           readout: t(language, `的までの距離 ${f(closest)}`, `Distance to target ${f(closest)}`),
           warning: t(
             language,
-            '電場を「重力」として使おう（電場は残す）',
-            'Use the electric field as your "gravity" (keep it on)',
+            '電場を「重力」として使おう（-y 向きの成分を残す）',
+            'Use the electric field as your "gravity" (keep a -y component)',
           ),
         };
       }

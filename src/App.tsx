@@ -274,26 +274,28 @@ export default function App() {
   }, [animate]);
 
   useEffect(() => {
-    // Space keeps its native "activate" meaning for a control reached with the keyboard, but a
-    // button that merely kept focus after a mouse click should not swallow the shortcut.
-    let lastInput: 'pointer' | 'keyboard' = 'pointer';
+    // Space keeps its native "activate" meaning for a control that received focus without a
+    // pointer (Tab, arrow keys, screen-reader navigation), but a button that merely kept focus
+    // after a mouse click should not swallow the shortcut.
+    let lastPointerAt = -Infinity;
+    let focusedByPointer = false;
     let interceptedSpace = false;
 
     const onPointerDown = () => {
-      lastInput = 'pointer';
+      lastPointerAt = performance.now();
+    };
+
+    const onFocusIn = () => {
+      focusedByPointer = performance.now() - lastPointerAt < 500;
     };
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Tab' || event.key.startsWith('Arrow')) {
-        lastInput = 'keyboard';
-      }
-
       if (event.altKey || event.ctrlKey || event.metaKey || isTextEntryTarget(event.target)) {
         return;
       }
 
       if (event.code === 'Space') {
-        if (isActivatableControl(event.target) && lastInput === 'keyboard') {
+        if (isActivatableControl(event.target) && !focusedByPointer) {
           return;
         }
         event.preventDefault();
@@ -315,10 +317,12 @@ export default function App() {
     };
 
     window.addEventListener('pointerdown', onPointerDown, true);
+    window.addEventListener('focusin', onFocusIn);
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', onKeyUp);
     return () => {
       window.removeEventListener('pointerdown', onPointerDown, true);
+      window.removeEventListener('focusin', onFocusIn);
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
     };

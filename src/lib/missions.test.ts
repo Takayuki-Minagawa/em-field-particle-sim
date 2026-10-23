@@ -101,6 +101,12 @@ describe('missions', () => {
         withParticle({ ...deflect.setup, electric: { x: 0, y: 0, z: 0 } }, { velocity: { x: 3, y: -1.5, z: 0 } }),
       ),
     ).toBe(false);
+    expect(
+      play(
+        deflect,
+        withParticle({ ...deflect.setup, electric: { x: 0, y: 0, z: 0.3 } }, { velocity: { x: 3, y: -1.5, z: 0 } }),
+      ),
+    ).toBe(false);
 
     const drift = mission('drift');
     expect(
