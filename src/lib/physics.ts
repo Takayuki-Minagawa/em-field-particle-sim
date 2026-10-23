@@ -74,6 +74,10 @@ export function buildParticleState(
 
   return {
     ...particle,
+    launch: {
+      position: { ...particle.position },
+      velocity: { ...particle.velocity },
+    },
     force,
     acceleration,
     speed: magnitude(particle.velocity),
@@ -108,6 +112,7 @@ function metricPoint(time: number, particle: ParticleState): MetricPoint {
 export function initialiseSimulation(
   particles: ParticleConfig[],
   fields: Fields,
+  scenario: string | null = null,
 ): SimulationState {
   const particleStates = particles.map((particle) => buildParticleState(particle, fields));
   const history = Object.fromEntries(
@@ -115,6 +120,9 @@ export function initialiseSimulation(
   );
 
   return {
+    // A fresh copy per run, so the object identity also marks one simulation attempt.
+    fields: { ...fields },
+    scenario,
     time: 0,
     particles: particleStates,
     history,
@@ -209,6 +217,7 @@ export function advanceSimulation(
     }
 
     state = {
+      ...state,
       time,
       particles,
       history,

@@ -4,6 +4,7 @@ import type {
   Language,
   ParticleConfig,
   ParticleTemplateId,
+  ScenarioSetup,
 } from '../lib/types';
 
 const colors = ['#ff6b57', '#23b5d3', '#ffb84d', '#63c132', '#ff6ec7', '#8e9bff'];
@@ -78,7 +79,6 @@ const templateDefaults: Record<
     charge: 1,
     position: { x: -3.5, y: 1.6, z: 0 },
     velocity: { x: 1.6, y: 0, z: 0 },
-    customLabel: 'Custom',
   },
 };
 
@@ -98,6 +98,23 @@ export function createParticle(
     color: particleColor(serial),
     ...defaults,
   };
+}
+
+export function createScenarioParticles(
+  setup: ScenarioSetup,
+  firstSerial: number,
+): ParticleConfig[] {
+  return setup.particles.map((entry, index) => {
+    const particle = createParticle(entry.templateId, firstSerial + index);
+
+    return {
+      ...particle,
+      mass: entry.mass ?? particle.mass,
+      charge: entry.charge ?? particle.charge,
+      position: { ...entry.position },
+      velocity: { ...entry.velocity },
+    };
+  });
 }
 
 export function createDefaultParticles(): ParticleConfig[] {

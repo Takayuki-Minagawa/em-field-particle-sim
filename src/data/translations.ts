@@ -1,4 +1,4 @@
-import type { FieldPresetId, Language, ScaleMode, Theme } from '../lib/types';
+import type { FieldPresetId, Language, ScaleMode, StudyTab, Theme } from '../lib/types';
 
 type Copy = {
   title: string;
@@ -61,7 +61,50 @@ type Copy = {
     wrong: string;
   };
   presetLabels: Record<FieldPresetId, string>;
-};
+  study: {
+    tabs: Record<StudyTab, string>;
+    lessonStep: string;
+    keyIdea: string;
+    points: string;
+    predict: string;
+    predictHint: string;
+    prepare: string;
+    prepared: string;
+    observe: string;
+    tryNext: string;
+    prev: string;
+    next: string;
+    lessonDone: string;
+    missionsIntro: string;
+    start: string;
+    retry: string;
+    active: string;
+    cleared: string;
+    goal: string;
+    hint: string;
+    showHint: string;
+    difficulty: string;
+    progress: string;
+    quit: string;
+    clearedToast: string;
+    lessonToast: string;
+    quizScore: string;
+  };
+  hero: {
+    steps: [string, string, string];
+    lessons: string;
+    missions: string;
+    shortcuts: string;
+  };
+  legend: {
+    electric: string;
+    magnetic: string;
+    velocity: string;
+    force: string;
+    radius: string;
+    target: string;
+  };
+}
 
 export const copy: Record<Language, Copy> = {
   ja: {
@@ -139,6 +182,54 @@ export const copy: Record<Language, Copy> = {
       selector: '速度選別器',
       custom: 'カスタム',
     },
+    study: {
+      tabs: {
+        lessons: 'レッスン',
+        missions: 'ミッション',
+        explain: '解説',
+        quiz: 'クイズ',
+      },
+      lessonStep: 'STEP',
+      keyIdea: 'ポイント',
+      points: 'おさえておこう',
+      predict: '予想してみよう',
+      predictHint: '答えを選ぶと実験がスタートします',
+      prepare: 'この実験を準備する',
+      prepared: '準備 OK！ 予想を選ぶと再生されます',
+      observe: '観察ポイント',
+      tryNext: 'もっと試そう',
+      prev: '前へ',
+      next: '次へ',
+      lessonDone: '完了',
+      missionsIntro: '学んだことを使ってミッションに挑戦！ 操作パネルで値を変えて、条件をクリアしよう。',
+      start: '挑戦する',
+      retry: 'もう一度',
+      active: '挑戦中',
+      cleared: 'クリア',
+      goal: 'クリア条件',
+      hint: 'ヒント',
+      showHint: 'ヒントを見る',
+      difficulty: '難易度',
+      progress: '達成度',
+      quit: '中断する',
+      clearedToast: 'ミッションクリア！',
+      lessonToast: '正解！ 予想どおり！',
+      quizScore: '正解数',
+    },
+    hero: {
+      steps: ['レッスンで学ぶ', '3D で観察する', 'ミッションに挑戦'],
+      lessons: 'レッスン',
+      missions: 'ミッション',
+      shortcuts: 'Space: 再生/停止　R: リセット',
+    },
+    legend: {
+      electric: '電場 E',
+      magnetic: '磁場 B',
+      velocity: '速度 v',
+      force: '力 F',
+      radius: '円運動の半径',
+      target: 'ゴール',
+    },
   },
   en: {
     title: 'Electric and Magnetic Field Particle Simulator',
@@ -215,6 +306,54 @@ export const copy: Record<Language, Copy> = {
       orthogonal: 'Orthogonal fields',
       selector: 'Velocity selector',
       custom: 'Custom',
+    },
+    study: {
+      tabs: {
+        lessons: 'Lessons',
+        missions: 'Missions',
+        explain: 'Explain',
+        quiz: 'Quiz',
+      },
+      lessonStep: 'STEP',
+      keyIdea: 'Key idea',
+      points: 'Remember',
+      predict: 'Make a prediction',
+      predictHint: 'Pick an answer to start the experiment',
+      prepare: 'Set up this experiment',
+      prepared: 'Ready! Pick a prediction to play',
+      observe: 'What to watch',
+      tryNext: 'Try more',
+      prev: 'Back',
+      next: 'Next',
+      lessonDone: 'Done',
+      missionsIntro: 'Put what you learned to work! Change values in the control panel to meet each goal.',
+      start: 'Start',
+      retry: 'Retry',
+      active: 'In progress',
+      cleared: 'Cleared',
+      goal: 'Goal',
+      hint: 'Hint',
+      showHint: 'Show hint',
+      difficulty: 'Difficulty',
+      progress: 'Progress',
+      quit: 'Quit',
+      clearedToast: 'Mission cleared!',
+      lessonToast: 'Correct! Nice prediction!',
+      quizScore: 'Score',
+    },
+    hero: {
+      steps: ['Learn with lessons', 'Observe in 3D', 'Take on missions'],
+      lessons: 'Lessons',
+      missions: 'Missions',
+      shortcuts: 'Space: play/pause   R: reset',
+    },
+    legend: {
+      electric: 'Electric field E',
+      magnetic: 'Magnetic field B',
+      velocity: 'Velocity v',
+      force: 'Force F',
+      radius: 'Orbit radius',
+      target: 'Goal',
     },
   },
 };
